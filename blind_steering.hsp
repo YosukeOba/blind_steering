@@ -1,0 +1,174 @@
+#uselib "winmm"
+#cfunc timeGetTime "timeGetTime"
+#define WM_MOUSEMOVE	$00000200
+#include "user32.as"
+#include "hspmath.as"
+
+screen 0,ginfo(20),ginfo(21),256,0,0
+
+successMusicFile = "success.wav"
+failureMusicFile = "failure.wav"
+mci "open \""+successMusicFile+"\" alias success"
+mci "open \""+failureMusicFile+"\" alias failure"
+
+participant = 6
+B=0
+
+isStart = 0
+startTime = 0
+
+dim As,2
+As = 250, 560
+
+dim Ws,3
+Ws = 30, 40, 60
+
+countBlock = 10
+
+dim tasks,length(As)*length(Ws)
+gosub *taskShuffle
+
+taskCounter=0
+blockCounter=0
+
+A=0
+W=0
+
+error=0
+
+dim target,2
+target = 0,0
+
+dim start,2
+start = 10000,0
+
+lastTime=timeGetTime()
+
+mouse 300,400
+
+pmousex = 0
+pmousey = 0
+
+*main
+	if(countBlock <= blockCounter){
+		notesel data
+		notesave ""+participant+","+B+".txt"
+		end
+	}
+	redraw 0
+	color 175,175,175:boxf
+
+	if(isStart == 0){
+		gosub *startCheck
+	} else: if(isStart == -1){
+		gosub *check
+	}
+
+	gosub *term
+
+	gosub *drawTargets
+
+	color 0,0,0
+	pos 0,0
+	mes "Block = "+blockCounter
+	pos 0,30
+	mes "Count = "+taskCounter
+	fps = 1000.0/(timeGetTime() - lastTime+1)
+	pos 0,60
+	mes "fps = "+fps
+
+	pos 0,90
+	mes "mousex = "+mousex
+	pos 0,120
+	mes "mousey = "+mousey
+	pos 0,150
+	mes "isStart = "+isStart
+
+	redraw 1
+	lastTime=timeGetTime()
+	pmousex = mousex
+	pmousey = mousey
+	await 1
+	goto *main
+
+*startCheck
+	if(pmousex<start(0) && start(0)<=mousex){
+		gosub *startT
+	}
+	return
+
+*check
+	if(start(1)<=mousey && mousey<=start(1)+W){
+		if(pmousex<target(0) && target(0)<=mousex){
+			error = 0
+			gosub *save
+		}
+	} else {
+		error = 1
+		gosub *save
+	}
+	return
+	
+
+*startT
+	isStart = -1
+	startTime = timeGetTime()
+	if(B==1){
+		mouse -1
+	}
+	return
+
+*save
+	mouse 300,400
+	isStart = 0
+	
+	tempTime = timeGetTime()-startTime
+
+	notesel data
+	noteadd ""+participant+","+A+","+W+","+B+","+tempTime+","+error+","+blockCounter+","+taskCounter
+	if(error == 0){
+		mci "play success from 0"
+	} else: if(error == 1){
+		mci "play failure from 0"
+	}
+
+	taskCounter++
+	if (length(tasks) <= taskCounter){
+		blockCounter++
+		taskCounter=0
+		gosub *taskShuffle
+	}
+	
+	return
+	
+*term
+	e = tasks(taskCounter)
+	A = As(e\length(As))
+	W = Ws((e/length(As))\length(Ws))
+
+	target(0) = ginfo(20)/2 + A/2
+	target(1) = ginfo(21)/2 - W/2
+	start(0) = ginfo(20)/2 - A/2
+	start(1) = target(1)
+
+	return
+
+*drawTargets
+	color 200,200,200
+	boxf start(0),start(1),target(0),target(1)+W
+
+	color 255,0,0
+	line start(0),0,start(0),ginfo(21)
+	color 0,255,0
+	line target(0),0,target(0),ginfo(21)
+
+	return
+
+*taskShuffle
+	randomize
+	repeat length(tasks)
+		r=rnd(cnt+1)
+		tasks(cnt)=tasks(r)
+		tasks(r)=cnt
+	loop
+	return
